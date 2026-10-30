@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 
 import {
   type AgentSession,
-  type ContextUsage,
   type SessionEntry,
   type ToolDefinition,
   SessionManager,
@@ -37,6 +36,7 @@ import {
 
 import { createPiBehavior, type PiBehavior } from './behavior/harness'
 import { historyOf } from './behavior/history'
+import { readContextUsage } from './contextUsage'
 import { PiProjection, type PiObservation } from './runtimeProjection'
 import { createAgentRuntimeSession, type AgentRuntimeSession, type AgentRuntimeSessionOptions } from './session'
 import type { SubagentSessionOptions } from './subagent'
@@ -76,7 +76,6 @@ export interface PiThreadHandle extends ThreadHandle {
         readonly handle: PiThreadHandle
       }>
     >
-    contextUsage(): ContextUsage | undefined
     history(): readonly SessionEntry[]
     /** Read committed entries through owner shutdown, until this access is released. */
     archive(): ReturnType<PiProjection['archive']>
@@ -346,6 +345,12 @@ export async function createPiRuntime(options: PiRuntimeOptions): Promise<Operat
     }
     return {
       thread: entry.ref,
+      async contextUsage() {
+        if (unavailable()) return rejected('contextUsage', 'released')
+        const result = readContextUsage(entry.session)
+        entry.projection.feed.publish({ type: 'context.changed', result })
+        return result
+      },
       pi: {
         observe: (sink) => observeCaptured(() => entry.projection.observe(sink)),
         relation: () =>
@@ -393,7 +398,6 @@ export async function createPiRuntime(options: PiRuntimeOptions): Promise<Operat
           }
           return { status: 'confirmed', value: { relation: found.value, handle: opened.value } }
         },
-        contextUsage: () => (unavailable() ? undefined : entry.session.getContextUsage()),
         history: () => (unavailable() ? [] : structuredClone(entry.session.sessionManager.getBranch())),
         archive: () => {
           if (released) throw new Error('Pi history access is closed')
