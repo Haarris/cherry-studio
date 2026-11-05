@@ -6,7 +6,7 @@ import type { Provider } from '@shared/data/types/provider'
 
 import { useAgentModelFilter } from '../useAgentModelFilter'
 
-function model(capabilities: Model['capabilities'] = []): Model {
+function model(capabilities: Model['capabilities'] = [MODEL_CAPABILITY.FUNCTION_CALL]): Model {
   return {
     id: 'openai::gpt-4o',
     providerId: 'openai',
@@ -32,6 +32,12 @@ const providers = {
 } as const satisfies Record<string, Partial<Provider>>
 
 describe('useAgentModelFilter', () => {
+  it.each(['pi', 'pi-durable', 'claude-code', undefined] as const)('requires tool calling for %s', (runtime) => {
+    const { result } = renderHook(() => useAgentModelFilter(runtime))
+    expect(result.current(model(), providers.openai as Provider)).toBe(true)
+    expect(result.current(model([]), providers.openai as Provider)).toBe(false)
+  })
+
   it('allows Gemini provider models for Claude Code agents', () => {
     const { result } = renderHook(() => useAgentModelFilter('claude-code'))
 

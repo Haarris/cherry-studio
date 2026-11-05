@@ -6,7 +6,7 @@
  * Pi also excludes providers whose authentication requires an external CLI.
  *
  * Default `null`-typed agents fall through to the shared "agent-friendly"
- * filter (drops embedding / rerank / image-generation models — none of
+ * filter (requires tool calling and drops non-chat models — none of
  * those make sense as chat targets).
  */
 
@@ -16,9 +16,9 @@ import { AGENT_RUNTIME_CAPABILITIES } from '@shared/ai/agentRuntimeCapabilities'
 import type { AgentType } from '@shared/data/types/agent'
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
-import { isNonChatModel } from '@shared/utils/model'
+import { isFunctionCallingModel, isNonChatModel } from '@shared/utils/model'
 
-const baseAgentFilter = (model: Model): boolean => !isNonChatModel(model)
+const baseAgentFilter = (model: Model): boolean => !isNonChatModel(model) && isFunctionCallingModel(model)
 
 type ModelPredicate = (model: Model, provider?: Provider) => boolean
 

@@ -11,6 +11,7 @@ import { providerService } from '@data/services/ProviderService'
 import { loggerService } from '@logger'
 import { ChildThreadProjection } from '@main/ai/agentSession/ChildThreadProjection'
 import { prepareDurableRoot } from '@main/ai/agentSession/durableNativeContext'
+import { getManualCompactionTurn } from '@main/ai/agentSession/manualCompactCommand'
 import {
   prepareNativeSubmission,
   bindNativeInput,
@@ -178,11 +179,12 @@ export class PiDurableRuntimeConnection implements AgentRuntimeConnection {
     this.failure = undefined
     this.usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
     const text = buildAgentUserContent(input.message)
-    if (!input.systemReminder && /^\/compact(?:\s|$)/.test(text.trim())) {
+    const command = getManualCompactionTurn('pi-durable', text, !!input.systemReminder)
+    if (command) {
       this.compacting = true
       this.events.push({ type: 'compaction-start', trigger: 'manual' })
       try {
-        const compacted = await this.handle.durable.compact(text.trim().slice('/compact'.length).trim() || undefined)
+        const compacted = await this.handle.durable.compact(command.instructions || undefined)
         if (compacted.status !== 'confirmed') throw new Error(compacted.error.message)
         if (!this.closing && !compacted.value.compacted) {
           const id = randomUUID()
